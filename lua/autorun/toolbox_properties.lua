@@ -873,7 +873,7 @@ properties.Add( "disable_radar", {
 	end
 } )
 
-properties.Add( "test", {
+--[[properties.Add( "test", {
 	MenuLabel = "#test",
 	Order = 0,
 	MenuIcon = "icon16/bomb.png",
@@ -900,4 +900,4 @@ properties.Add( "test", {
 		--ent:SetKeyValue( "EnableGun", "1" )
 		--ent:SetKeyValue( "spawnflags", bit.bor( ent:GetSpawnFlags(), 8192 ) )
 	end
-} )
+} )]]
