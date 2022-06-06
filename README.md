@@ -1,4 +1,4 @@
-[![download](https://img.shields.io/badge/download-Steam%20Workshop-blue)](https://steamcommunity.com/sharedfiles/filedetails/?id=2479083959)
+[![subscribe Steam Workshop](https://img.shields.io/badge/subscribe-Steam_Workshop-144d80)](https://steamcommunity.com/sharedfiles/filedetails/?id=2479083959)
 
 A collection of useful tools for building and posing in Garry's Mod.
 
