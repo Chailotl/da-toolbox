@@ -6,15 +6,22 @@ local orderNums = {
 	lock = 800,
 	sleep = 850,
 	tpose = 1500.5,
-	worldCollision = 1500.1,
-	selfCollision = 1500.2,
-	makeFriendly = 1900,
-	depleteAmmo = 1901,
-	selfDestruct = 1902,
+	world_collision_off = 1500.1,
+	world_collision_on = 1500.1,
+	self_collision_off = 1500.2,
+	self_collision_on = 1500.2,
+	make_friendly = 1900,
+	make_hostile = 1900,
+	deplete_ammo = 1901,
+	restore_ammo = 1901,
+	self_destruct = 1902,
 	recharge = 1900,
-	lockDoor = 1900,
-	mountGun = 1900,
-	enableRadar = 1900
+	lock_door = 1900,
+	unlock_door = 1900,
+	mount_gun = 1900,
+	dismount_gun = 1900,
+	enable_radar = 1900,
+	disable_radar = 1900
 }
 
 if CLIENT then
@@ -41,38 +48,64 @@ if CLIENT then
 	language.Add( "disable_radar", "Disable Radar" )
 end
 
-properties.Add( "unbreakable", {
-	MenuLabel = "#unbreakable",
-	Order = orderNums.unbreakable,
-	Type = "toggle",
+function registerProperty( name, icon, filter, receive )
+	properties.Add( name, {
+		MenuLabel = "#" .. name,
+		Order = orderNums[name],
+		MenuIcon = icon,
+		Filter = filter,
+		Action = function( self, ent )
+			self:MsgStart()
+				net.WriteEntity( ent )
+			self.MsgEnd()
+		end,
+		Receive = receive
+	} )
+end
 
-	Filter = function( self, ent, ply )
+function registerPropertyToggle( name, checked, filter, receive )
+	properties.Add( name, {
+		MenuLabel = "#" .. name,
+		Order = orderNums[name],
+		Type = "toggle",
+		Checked = checked,
+		Filter = filter,
+		Action = function( self, ent )
+			self:MsgStart()
+				net.WriteEntity( ent )
+			self.MsgEnd()
+		end,
+		Receive = receive
+	} )
+end
+
+-- unbreakable
+registerPropertyToggle( "unbreakable",
+	function( self, ent, ply )
+		return ent:GetNWBool( "unbreakable" )
+	end,
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 		if ent:Health() == 0 then return false end
 
 		return true
 	end,
-
-	Checked = function( self, ent, ply )
-		return ent:GetNWBool( "unbreakable" )
-	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
 		if !self:Filter( ent, ply ) then return end
 
-		ent:SetNWBool( "unbreakable", !ent:GetNWBool( "unbreakable" ) )
+		local unbreakable = !ent:GetNWBool( "unbreakable" )
+		ent:SetNWBool( "unbreakable", unbreakable )
+		duplicator.StoreEntityModifier( ent, "chai.unbreakable", { val = unbreakable } )
 	end
-} )
+)
+
+duplicator.RegisterEntityModifier( "chai.unbreakable", function( ply, ent, data )
+	ent:SetNWBool( "unbreakable", data.val )
+end )
 
 hook.Add( "EntityTakeDamage", "Unbreakable", function( target, dmginfo )
 	if target:GetNWBool( "unbreakable" ) then
@@ -80,12 +113,9 @@ hook.Add( "EntityTakeDamage", "Unbreakable", function( target, dmginfo )
 	end
 end )
 
-properties.Add( "sleep", {
-	MenuLabel = "#sleep",
-	Order = orderNums.sleep,
-	MenuIcon = "icon16/anchor.png",
-
-	Filter = function( self, ent, ply )
+-- sleep
+registerProperty( "sleep", "icon16/anchor.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 		-- Always invalid on client
@@ -93,14 +123,7 @@ properties.Add( "sleep", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -112,28 +135,18 @@ properties.Add( "sleep", {
 			ent:GetPhysicsObjectNum( i ):EnableMotion( true )
 		end
 	end
-} )
+)
 
-properties.Add( "tpose", {
-	MenuLabel = "#tpose",
-	Order = orderNums.tpose,
-	MenuIcon = "icon16/status_online.png",
-
-	Filter = function( self, ent, ply )
+-- tpose
+registerProperty( "tpose", "icon16/status_online.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 		if ent:GetClass() != "prop_ragdoll" then return false end
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -158,31 +171,20 @@ properties.Add( "tpose", {
 		end
 		temp:Remove()
 	end
-} )
+)
 
-properties.Add( "shadows", {
-	MenuLabel = "#shadows",
-	Order = orderNums.shadows,
-	Type = "toggle",
-
-	Filter = function( self, ent, ply )
+-- shadows
+registerPropertyToggle( "shadows",
+	function( self, ent, ply )
+		return ent:GetNWBool( "shadows", true )
+	end,
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 
 		return true
 	end,
-
-	Checked = function( self, ent, ply )
-		return ent:GetNWBool( "shadows", true )
-	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -191,29 +193,25 @@ properties.Add( "shadows", {
 		local shadows = !ent:GetNWBool( "shadows", true )
 		ent:SetNWBool( "shadows", shadows )
 		ent:DrawShadow( shadows )
+		duplicator.StoreEntityModifier( ent, "chai.shadows", { val = shadows } )
 	end
-} )
+)
 
-properties.Add( "world_collision_off", {
-	MenuLabel = "#world_collision_off",
-	Order = orderNums.worldCollision,
-	MenuIcon = "icon16/collision_off.png",
+duplicator.RegisterEntityModifier( "chai.shadows", function( ply, ent, data )
+	ent:SetNWBool( "shadows", data.val )
+	ent:DrawShadow( data.val )
+end )
 
-	Filter = function( self, ent, ply )
+-- world collisions
+registerProperty( "world_collision_off", "icon16/collision_off.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 		if ent:GetNWBool( "noCollideWorld" ) then return false end
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -222,28 +220,17 @@ properties.Add( "world_collision_off", {
 		ent:SetNWBool( "noCollideWorld", true )
 		constraint.NoCollideWorld( ent, Entity( 0 ), 0, 0 )
 	end
-} )
+)
 
-properties.Add( "world_collision_on", {
-	MenuLabel = "#world_collision_on",
-	Order = orderNums.worldCollision,
-	MenuIcon = "icon16/collision_on.png",
-
-	Filter = function( self, ent, ply )
+registerProperty( "world_collision_on", "icon16/collision_on.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 		if !ent:GetNWBool( "noCollideWorld" ) then return false end
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -252,7 +239,7 @@ properties.Add( "world_collision_on", {
 		ent:SetNWBool( "noCollideWorld", false )
 		constraint.FindConstraint( ent, "NoCollideWorld" ).Constraint:Remove()
 	end
-} )
+)
 
 local function CreateConstraintSystem()
 	local System = ents.Create( "phys_constraintsystem" )
@@ -351,14 +338,12 @@ function constraint.NoCollideWorld( Ent1, Ent2, Bone1, Bone2 )
 
 	return Constraint
 end
+
 duplicator.RegisterConstraint( "NoCollideWorld", constraint.NoCollideWorld, "Ent1", "Ent2", "Bone1", "Bone2" )
 
-properties.Add( "self_collision_off", {
-	MenuLabel = "#self_collision_off",
-	Order = orderNums.selfCollision,
-	MenuIcon = "icon16/collision_off.png",
-
-	Filter = function( self, ent, ply )
+-- self collisions
+registerProperty( "self_collision_off", "icon16/collision_off.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 		if ent:GetClass() != "prop_ragdoll" then return false end
@@ -366,14 +351,7 @@ properties.Add( "self_collision_off", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -387,14 +365,10 @@ properties.Add( "self_collision_off", {
 			end
 		end
 	end
-} )
+)
 
-properties.Add( "self_collision_on", {
-	MenuLabel = "#self_collision_on",
-	Order = orderNums.selfCollision,
-	MenuIcon = "icon16/collision_on.png",
-
-	Filter = function( self, ent, ply )
+registerProperty( "self_collision_on", "icon16/collision_on.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 		if ent:GetClass() != "prop_ragdoll" then return false end
@@ -402,14 +376,7 @@ properties.Add( "self_collision_on", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -423,39 +390,34 @@ properties.Add( "self_collision_on", {
 			end
 		end
 	end
-} )
+)
 
-properties.Add( "locked", {
-	MenuLabel = "#locked",
-	Order = orderNums.locked,
-	Type = "toggle",
-
-	Filter = function( self, ent, ply )
+-- locked
+registerPropertyToggle( "locked",
+	function( self, ent, ply )
+		return ent:GetNWBool( "locked" )
+	end,
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:IsPlayer() then return false end
 
 		return true
 	end,
-
-	Checked = function( self, ent, ply )
-		return ent:GetNWBool( "locked" )
-	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
 		if !self:Filter( ent, ply ) then return end
 
-		ent:SetNWBool( "locked", !ent:GetNWBool( "locked" ) )
+		local locked = !ent:GetNWBool( "locked" )
+		ent:SetNWBool( "locked", locked )
+		duplicator.StoreEntityModifier( ent, "chai.locked", { val = locked } )
 	end
-} )
+)
+
+duplicator.RegisterEntityModifier( "chai.locked", function( ply, ent, data )
+	ent:SetNWBool( "locked", data.val )
+end )
 
 hook.Add( "PhysgunPickup", "Locked_Pickup", function( ply, ent )
 	if IsValid( ent ) && ent:GetNWBool( "locked" ) then
@@ -475,26 +437,16 @@ hook.Add( "OnPhysgunReload", "Locked_Reload", function( _, ply )
 	end
 end)
 
-properties.Add( "make_friendly", {
-	MenuLabel = "#make_friendly",
-	Order = orderNums.makeFriendly,
-	MenuIcon = "icon16/user_green.png",
-
-	Filter = function( self, ent, ply )
+-- make friendly/hostile
+registerProperty( "make_friendly", "icon16/user_green.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if bit.band( ent:GetSpawnFlags(), 512 ) == 512 then return false end
 		if ent:GetClass() == "npc_turret_floor" then return true end
 
 		return false
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -502,29 +454,19 @@ properties.Add( "make_friendly", {
 
 		ent:SetKeyValue( "spawnflags", bit.bor( ent:GetSpawnFlags(), SF_FLOOR_TURRET_CITIZEN ) )
 		ent:SetMaterial( "models/combine_turrets/floor_turret/floor_turret_citizen" )
+		duplicator.StoreEntityModifier( ent, "chai.make_friendly", { val = true } )
 	end
-} )
+)
 
-properties.Add( "make_hostile", {
-	MenuLabel = "#make_hostile",
-	Order = orderNums.makeFriendly,
-	MenuIcon = "icon16/user_red.png",
-
-	Filter = function( self, ent, ply )
+registerProperty( "make_hostile", "icon16/user_red.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if bit.band( ent:GetSpawnFlags(), 512 ) == 0 then return false end
 		if ent:GetClass() == "npc_turret_floor" then return true end
 
 		return false
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -532,15 +474,20 @@ properties.Add( "make_hostile", {
 
 		ent:SetKeyValue( "spawnflags", bit.bxor( ent:GetSpawnFlags(), SF_FLOOR_TURRET_CITIZEN ) )
 		ent:SetMaterial( "models/combine_turrets/floor_turret/combine_gun002" )
+		duplicator.StoreEntityModifier( ent, "chai.make_friendly", { val = false } )
 	end
-} )
+)
 
-properties.Add( "self_destruct", {
-	MenuLabel = "#self_destruct",
-	Order = orderNums.selfDestruct,
-	MenuIcon = "icon16/bomb.png",
+duplicator.RegisterEntityModifier( "chai.make_friendly", function( ply, ent, data )
+	if ( data.val ) then
+		ent:SetKeyValue( "spawnflags", bit.bor( ent:GetSpawnFlags(), SF_FLOOR_TURRET_CITIZEN ) )
+		ent:SetMaterial( "models/combine_turrets/floor_turret/floor_turret_citizen" )
+	end
+end )
 
-	Filter = function( self, ent, ply )
+-- self-destruct
+registerProperty( "self_destruct", "icon16/bomb.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() == "npc_turret_floor" then return true end
 		if ent:GetClass() == "npc_helicopter" then return true end
@@ -548,14 +495,7 @@ properties.Add( "self_destruct", {
 
 		return false
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -567,86 +507,63 @@ properties.Add( "self_destruct", {
 			ent:Fire( "SelfDestruct" )
 		end
 	end
-} )
+)
 
-properties.Add( "deplete_ammo", {
-	MenuLabel = "#deplete_ammo",
-	Order = orderNums.depleteAmmo,
-	MenuIcon = "icon16/delete.png",
-
-	Filter = function( self, ent, ply )
+-- deplete/restore ammo
+registerProperty( "deplete_ammo", "icon16/delete.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if bit.band( ent:GetSpawnFlags(), 256 ) == 256 then return false end
 		if ent:GetClass() == "npc_turret_floor" then return true end
 
 		return false
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
 		if !self:Filter( ent, ply ) then return end
 
 		ent:SetKeyValue( "spawnflags", bit.bor( ent:GetSpawnFlags(), 256 ) )
+		duplicator.StoreEntityModifier( ent, "chai.deplete_ammo", { val = true } )
 	end
-} )
+)
 
-properties.Add( "restore_ammo", {
-	MenuLabel = "#restore_ammo",
-	Order = orderNums.depleteAmmo,
-	MenuIcon = "icon16/add.png",
-
-	Filter = function( self, ent, ply )
+registerProperty( "restore_ammo", "icon16/add.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if bit.band( ent:GetSpawnFlags(), 256 ) == 0 then return false end
 		if ent:GetClass() == "npc_turret_floor" then return true end
 
 		return false
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
 		if !self:Filter( ent, ply ) then return end
 
 		ent:SetKeyValue( "spawnflags", bit.bxor( ent:GetSpawnFlags(), 256 ) )
+		duplicator.StoreEntityModifier( ent, "chai.deplete_ammo", { val = false } )
 	end
-} )
+)
 
-properties.Add( "recharge", {
-	MenuLabel = "#recharge",
-	Order = orderNums.recharge,
-	MenuIcon = "icon16/arrow_refresh.png",
+duplicator.RegisterEntityModifier( "chai.deplete_ammo", function( ply, ent, data )
+	if ( data.val ) then
+		ent:SetKeyValue( "spawnflags", bit.bor( ent:GetSpawnFlags(), 256 ) )
+	end
+end )
 
-	Filter = function( self, ent, ply )
+-- recharge
+registerProperty( "recharge", "icon16/arrow_refresh.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() == "item_suitcharger" then return true end
 		if ent:GetClass() == "item_healthcharger" then return true end
 
 		return false
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -668,14 +585,11 @@ properties.Add( "recharge", {
 			ent:Remove()
 		end
 	end
-} )
+)
 
-properties.Add( "lock_door", {
-	MenuLabel = "#lock_door",
-	Order = orderNums.lockDoor,
-	MenuIcon = "icon16/lock.png",
-
-	Filter = function( self, ent, ply )
+-- lock/unlock door
+registerProperty( "lock_door", "icon16/lock.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() != "prop_door_rotating" then return false end
 
@@ -690,14 +604,7 @@ properties.Add( "lock_door", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -706,14 +613,10 @@ properties.Add( "lock_door", {
 		ent:SetNWBool( "lockedDoor", true )
 		ent:Fire( "Lock" )
 	end
-} )
+)
 
-properties.Add( "unlock_door", {
-	MenuLabel = "#unlock_door",
-	Order = orderNums.lockDoor,
-	MenuIcon = "icon16/lock_open.png",
-
-	Filter = function( self, ent, ply )
+registerProperty( "unlock_door", "icon16/lock_open.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() != "prop_door_rotating" then return false end
 
@@ -728,14 +631,7 @@ properties.Add( "unlock_door", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -744,14 +640,11 @@ properties.Add( "unlock_door", {
 		ent:SetNWBool( "lockedDoor", false )
 		ent:Fire( "Unlock" )
 	end
-} )
+)
 
-properties.Add( "mount_gun", {
-	MenuLabel = "#mount_gun",
-	Order = orderNums.mountGun,
-	MenuIcon = "icon16/gun.png",
-
-	Filter = function( self, ent, ply )
+-- mount/dismount gun
+registerProperty( "mount_gun", "icon16/car_add.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() != "prop_vehicle_jeep"
 		&& ent:GetClass() != "prop_vehicle_airboat" then return false end
@@ -760,14 +653,7 @@ properties.Add( "mount_gun", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -776,15 +662,12 @@ properties.Add( "mount_gun", {
 		ent:SetKeyValue( "EnableGun", "1" )
 		ent:SetBodygroup( 1, 1 )
 		ent:SetNWBool( "EnableGun", true )
+		duplicator.StoreEntityModifier( ent, "chai.mount_gun", { val = true } )
 	end
-} )
+)
 
-properties.Add( "dismount_gun", {
-	MenuLabel = "#dismount_gun",
-	Order = orderNums.mountGun,
-	MenuIcon = "icon16/gun.png",
-
-	Filter = function( self, ent, ply )
+registerProperty( "dismount_gun", "icon16/car_delete.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() != "prop_vehicle_jeep"
 		&& ent:GetClass() != "prop_vehicle_airboat" then return false end
@@ -792,14 +675,7 @@ properties.Add( "dismount_gun", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -808,15 +684,21 @@ properties.Add( "dismount_gun", {
 		ent:SetKeyValue( "EnableGun", "0" )
 		ent:SetBodygroup( 1, 0 )
 		ent:SetNWBool( "EnableGun", false )
+		duplicator.StoreEntityModifier( ent, "chai.mount_gun", { val = false } )
 	end
-} )
+)
 
-properties.Add( "enable_radar", {
-	MenuLabel = "#enable_radar",
-	Order = orderNums.enableRadar,
-	MenuIcon = "icon16/application_add.png",
+duplicator.RegisterEntityModifier( "chai.mount_gun", function( ply, ent, data )
+	if ( data.val ) then
+		ent:SetKeyValue( "EnableGun", "1" )
+		ent:SetBodygroup( 1, 1 )
+		ent:SetNWBool( "EnableGun", true )
+	end
+end )
 
-	Filter = function( self, ent, ply )
+-- enable/disable radar
+registerProperty( "enable_radar", "icon16/ipod_cast_add.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() != "prop_vehicle_jeep" then return false end
 		if ent:GetModel() != "models/vehicle.mdl" then return false end
@@ -824,14 +706,7 @@ properties.Add( "enable_radar", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -839,15 +714,12 @@ properties.Add( "enable_radar", {
 
 		ent:Fire( "EnableRadar" )
 		ent:SetNWBool( "EnableRadar", true )
+		duplicator.StoreEntityModifier( ent, "chai.enable_radar", { val = true } )
 	end
-} )
+)
 
-properties.Add( "disable_radar", {
-	MenuLabel = "#disable_radar",
-	Order = orderNums.enableRadar,
-	MenuIcon = "icon16/application_delete.png",
-
-	Filter = function( self, ent, ply )
+registerProperty( "disable_radar", "icon16/ipod_cast_delete.png",
+	function( self, ent, ply )
 		if !IsValid( ent ) then return false end
 		if ent:GetClass() != "prop_vehicle_jeep" then return false end
 		if ent:GetModel() != "models/vehicle.mdl" then return false end
@@ -855,14 +727,7 @@ properties.Add( "disable_radar", {
 
 		return true
 	end,
-
-	Action = function( self, ent )
-		self:MsgStart()
-			net.WriteEntity( ent )
-		self:MsgEnd()
-	end,
-
-	Receive = function( self, length, ply )
+	function( self, length, ply )
 		local ent = net.ReadEntity()
 
 		if !properties.CanBeTargeted( ent, ply ) then return end
@@ -870,8 +735,16 @@ properties.Add( "disable_radar", {
 
 		ent:Fire( "DisableRadar" )
 		ent:SetNWBool( "EnableRadar", false )
+		duplicator.StoreEntityModifier( ent, "chai.enable_radar", { val = false } )
 	end
-} )
+)
+
+duplicator.RegisterEntityModifier( "chai.enable_radar", function( ply, ent, data )
+	if ( data.val ) then
+		ent:Fire( "EnableRadar" )
+		ent:SetNWBool( "EnableRadar", true )
+	end
+end )
 
 --[[properties.Add( "test", {
 	MenuLabel = "#test",

@@ -10,7 +10,7 @@ local function SandboxClientSettings( pnl )
 	local ConVarsDefault = {
 		sbox_search_maxresults = "1024",
 		cl_drawhud = "1",
-		r_drawviewmodel = "1",
+		qqq = "1",
 		gmod_drawhelp = "1",
 		gmod_drawtooleffects = "1",
 		cl_drawworldtooltips = "1",

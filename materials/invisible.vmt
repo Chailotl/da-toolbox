@@ -1,0 +1,6 @@
+"UnlitGeneric"
+{
+	"$basetexture" "invisible"
+	"$surfaceprop" "Default"
+	"$translucent" 1
+}
